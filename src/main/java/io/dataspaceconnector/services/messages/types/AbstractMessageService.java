@@ -64,6 +64,9 @@ public abstract class AbstractMessageService<D extends MessageDesc> {
     @Autowired
     private DeserializationService deserializationService;
 
+    @Autowired
+    private LogMessageService logMessageService;
+
     /**
      * Build ids message with params.
      *
@@ -101,7 +104,10 @@ public abstract class AbstractMessageService<D extends MessageDesc> {
             }
 
             // Send message and return response.
-            return idsHttpService.sendAndCheckDat(body, recipient);
+            logMessageService.logRequest(header);
+            Map<String, String> response = idsHttpService.sendAndCheckDat(body, recipient);
+            logMessageService.logResponse(response);
+            return response;
         } catch (MessageBuilderException e) {
             if (log.isWarnEnabled()) {
                 log.warn("Failed to build ids request message. [exception=({})]",
