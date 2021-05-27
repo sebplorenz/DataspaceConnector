@@ -15,19 +15,25 @@
  */
 package io.dataspaceconnector.services.messages.types;
 
-import java.net.URI;
-
 import de.fraunhofer.iais.eis.LogMessageBuilder;
 import de.fraunhofer.iais.eis.Message;
 import de.fraunhofer.iais.eis.util.ConstraintViolationException;
 import de.fraunhofer.iais.eis.util.Util;
+import de.fraunhofer.isst.ids.framework.messaging.model.responses.BodyResponse;
+import io.dataspaceconnector.config.ConnectorConfiguration;
 import io.dataspaceconnector.exceptions.MessageException;
+import io.dataspaceconnector.exceptions.MessageResponseException;
 import io.dataspaceconnector.exceptions.PolicyExecutionException;
 import io.dataspaceconnector.model.messages.LogMessageDesc;
 import io.dataspaceconnector.utils.ErrorMessages;
 import io.dataspaceconnector.utils.Utils;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
+
+import java.net.URI;
+import java.util.Map;
 
 import static de.fraunhofer.isst.ids.framework.util.IDSUtils.getGregorianNow;
 
@@ -36,7 +42,13 @@ import static de.fraunhofer.isst.ids.framework.util.IDSUtils.getGregorianNow;
  */
 @Log4j2
 @Service
+@RequiredArgsConstructor
 public final class LogMessageService extends AbstractMessageService<LogMessageDesc> {
+
+    /**
+     * Service for connector usage control configurations.
+     */
+    private final @NonNull ConnectorConfiguration connectorConfig;
 
     /**
      * @throws IllegalArgumentException If desc is null.
@@ -61,9 +73,28 @@ public final class LogMessageService extends AbstractMessageService<LogMessageDe
                 .build();
     }
 
+    public void logRequest(Message header) {
+        sendMessage(header.toRdf());
+    }
+
+    public void logResponse(Map<String, String> response) {
+        sendMessage(response.get("header"));
+    }
+
+    public void logResponseMessage(BodyResponse<?> response) {
+        sendMessage(response.getHeader().toRdf());
+    }
+
     @Override
     protected Class<?> getResponseMessageType() {
         return null;
+    }
+
+    private void sendMessage(Object body) {
+        final var recipient = connectorConfig.getClearingHouse();
+        if (! (recipient == null || recipient.equals(URI.create("")))) {
+            sendMessage(recipient, body);
+        }
     }
 
     /**
@@ -73,21 +104,20 @@ public final class LogMessageService extends AbstractMessageService<LogMessageDe
      * @param logItem   The item that should be logged.
      * @throws PolicyExecutionException if the access could not be successfully logged.
      */
-    public void sendMessage(final URI recipient, final Object logItem)
-            throws PolicyExecutionException {
+    public void sendMessage(final URI recipient, final Object logItem) {
         try {
             final var response = send(new LogMessageDesc(recipient), logItem);
             if (response == null) {
                 if (log.isDebugEnabled()) {
                     log.debug("No response received.");
                 }
-                throw new PolicyExecutionException("Log message has no valid response.");
+                throw new MessageResponseException("Log message has no valid response.");
             }
         } catch (MessageException e) {
             if (log.isWarnEnabled()) {
                 log.warn("Failed to send log message. [exception=({})]", e.getMessage(), e);
             }
-            throw new PolicyExecutionException("Log message could not be sent.");
+            throw new MessageResponseException("Log message could not be sent.");
         }
     }
 }

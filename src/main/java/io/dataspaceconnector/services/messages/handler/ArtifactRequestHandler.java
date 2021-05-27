@@ -24,18 +24,13 @@ import de.fraunhofer.isst.ids.framework.messaging.model.messages.SupportedMessag
 import de.fraunhofer.isst.ids.framework.messaging.model.responses.BodyResponse;
 import de.fraunhofer.isst.ids.framework.messaging.model.responses.MessageResponse;
 import io.dataspaceconnector.config.ConnectorConfiguration;
-import io.dataspaceconnector.exceptions.ContractException;
-import io.dataspaceconnector.exceptions.InvalidInputException;
-import io.dataspaceconnector.exceptions.MessageBuilderException;
-import io.dataspaceconnector.exceptions.MessageEmptyException;
-import io.dataspaceconnector.exceptions.PolicyRestrictionException;
-import io.dataspaceconnector.exceptions.ResourceNotFoundException;
-import io.dataspaceconnector.exceptions.VersionNotSupportedException;
+import io.dataspaceconnector.exceptions.*;
 import io.dataspaceconnector.model.QueryInput;
 import io.dataspaceconnector.model.messages.ArtifactResponseMessageDesc;
 import io.dataspaceconnector.services.EntityResolver;
 import io.dataspaceconnector.services.messages.MessageResponseService;
 import io.dataspaceconnector.services.messages.types.ArtifactResponseService;
+import io.dataspaceconnector.services.messages.types.LogMessageService;
 import io.dataspaceconnector.services.usagecontrol.ContractManager;
 import io.dataspaceconnector.services.usagecontrol.DataProvisionVerifier;
 import io.dataspaceconnector.services.usagecontrol.VerificationInput;
@@ -92,6 +87,11 @@ public class ArtifactRequestHandler implements MessageHandler<ArtifactRequestMes
      * The verifier for the data access.
      */
     private final @NonNull DataProvisionVerifier accessVerifier;
+
+    /**
+     * Service for Clearing House logging
+     */
+    private final @NonNull LogMessageService logMessageService;
 
     /**
      * This message implements the logic that is needed to handle the message. As it returns the
@@ -195,7 +195,9 @@ public class ArtifactRequestHandler implements MessageHandler<ArtifactRequestMes
             final var header = messageService.buildMessage(desc);
 
             // Send ids response message.
-            return BodyResponse.create(header, Base64Utils.encodeToString(data.readAllBytes()));
+            BodyResponse<?> response = BodyResponse.create(header, Base64Utils.encodeToString(data.readAllBytes()));
+            logMessageService.logResponseMessage(response);
+            return response;
         } catch (MessageBuilderException | ConstraintViolationException | IOException exception) {
             return responseService.handleResponseMessageBuilderException(exception, issuer,
                     messageId);
