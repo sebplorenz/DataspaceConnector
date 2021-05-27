@@ -106,7 +106,7 @@ public final class LogMessageService extends AbstractMessageService<LogMessageDe
      */
     public void sendMessage(final URI recipient, final Object logItem) {
         try {
-            final var response = send(new LogMessageDesc(recipient), logItem);
+            final var response = send(new LogMessageDesc(recipient), logItem, false);
             if (response == null) {
                 if (log.isDebugEnabled()) {
                     log.debug("No response received.");

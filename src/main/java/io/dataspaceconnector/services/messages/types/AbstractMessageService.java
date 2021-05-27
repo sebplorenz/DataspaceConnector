@@ -93,20 +93,40 @@ public abstract class AbstractMessageService<D extends MessageDesc> {
      */
     public Map<String, String> send(final D desc, final Object payload)
             throws MessageException {
+        return send(desc, payload, true);
+    }
+
+    /**
+     * Build and sent a multipart message with header and payload.
+     *
+     * @param desc    Type-specific message parameter.
+     * @param payload The message's payload.
+     * @param logExchange If true, the exchange of the given message is logged to the Clearing House.
+     * @return The response as map.
+     * @throws MessageException If message building, sending, or processing failed.
+     */
+    protected Map<String, String> send(final D desc, final Object payload, boolean logExchange)
+            throws MessageException {
         try {
             final var recipient = desc.getRecipient();
             final var header = buildMessage(desc);
 
             final var body = MessageUtils.buildIdsMultipartMessage(header, payload);
             if (log.isDebugEnabled()) {
-                 // TODO Add logging house class
+                // TODO Add logging house class
                 log.debug("Built request message. [body=({})]", body);
             }
 
             // Send message and return response.
-            logMessageService.logRequest(header);
+            if (logExchange) {
+                logMessageService.logRequest(header);
+            }
+
             Map<String, String> response = idsHttpService.sendAndCheckDat(body, recipient);
-            logMessageService.logResponse(response);
+
+            if (logExchange) {
+                logMessageService.logResponse(response);
+            }
             return response;
         } catch (MessageBuilderException e) {
             if (log.isWarnEnabled()) {
